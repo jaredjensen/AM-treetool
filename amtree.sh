@@ -154,6 +154,37 @@ function listTrees {
     done;
 }
 
+function describeTrees {
+  if [[ -z $FILE ]] ; then
+    local FILES=($(ls -1tr *.json))
+    for TREEFILE in "${FILES[@]}" ; do
+      describeTree $TREEFILE
+    done;
+  else
+      describeTree $FILE
+  fi
+}
+
+function describeTree {
+  echo "Tree Name: ($(cat $1 | jq -r '.tree._id'))"
+  echo You must export each tree to a separate file \(-S\)
+  echo
+  echo Make sure you have copied the following nodes to:
+  echo /opt/forgerock/ext/tomcat/instances-8.5/alpha/webapps/openam/WEB-INF/lib/
+  echo
+  cat $1 | jq -r  '.tree|.nodes|.[]|.nodeType'
+  echo
+  echo Import the following trees before importing this tree:
+  cat $1 | jq -r '.nodes|.[]|.tree'
+  echo
+  echo You need to configure the following nodes for profile attributes
+  echo FIXTHIS parameterize tree files
+  grep profileAttribute $1
+  grep ipDataStoreField $1
+  echo
+  echo You need to configure demo accounts for the following
+  grep fromEmailAddress $1
+}
 
 function exportAllTrees {
     local JTREES=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
@@ -172,11 +203,53 @@ function exportAllTrees {
     fi
 }
 
+function exportTreesSeparately {
+    local FILEPREFIX=$FILE
+    echo "Export all trees to files"
+    local JTREES=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
+    local EXPORTS="{ \"trees\":{} }"
+    for TREE in "${TREES[@]}" ; do
+        FILE=$FILEPREFIX$TREE.json
+        if [[ -n $FILE ]]; then
+            echo "" > $FILE
+        fi
+        local JTREE=`exportTree "$TREE"`
+    done;
+}
+
+function importTreesSeparately {
+    echo "Import all trees in the current directory"
+#    local JTREES=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+#    local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
+    local FILES=($(ls -1tr *.json))
+    local JTREES=$'{\n  \"trees\": {\n    \"'
+    for TREEFILE in "${FILES[@]}" ; do
+      local TREENAME=${TREEFILE%.*}
+      JTREES=$JTREES$TREENAME$'\":\n'
+      JTREES=$JTREES$(cat $TREEFILE)$',\n    \"'
+    done;
+# Remove the comma from the end of the last file import and close the JSON
+    JTREES=${JTREES%???????}
+    jtrees=$JTREES$'  }\n}'
+# get list of already installed trees for dependency and conflict resolution
+    local jinstalled=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local installed=($(echo $jinstalled| jq -r  '.result|.[]|._id'))
+    local resolved=()
+    local unresolved=()
+    resolve
+    1>&2 echo "."
+# local trees=$(echo $jtrees | jq -r  '.trees | keys | .[]')
+    for tree in ${resolved[@]} ; do
+      local jtree=$(echo $jtrees | jq --arg tree $tree '.trees[$tree]')
+      echo $jtree | importTree "$tree" "noFile"
+done
+}
 
 # exportTree <tree> <flag>
 # where tree is the name of tree to export and if flag is set to anything, stdout will be used for output even if $FILE is set.
 function exportTree {
-    1>&2 echo -n "Exporting $1"
+    1>&2 echo -n "Exporting $1 "
     local TREE=$(curl -f -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$1 | jq -c '. | del (._rev)')
     if [ -z "$TREE" ]; then
         1>&2 echo "Failed to find tree: $1"
@@ -294,7 +367,7 @@ function resolve {
         1>&2 echo -n "Determining installation order"
         trees=$(echo $jtrees | jq -r  '.trees | keys | .[]')
     fi
-    
+
     for tree in $trees ; do
         1>&2 echo -n "."
         # 1>&2 echo "resolving $tree"
@@ -367,6 +440,7 @@ function importAllTrees {
 # importTree <tree> <flag>
 # where tree is the name of tree to import and if flag is set to anything, stdin will be used for input even if $FILE is set.
 function importTree {
+
     if [[ -z $FILE ]] || [[ -n $2 ]] ; then
         TREES=$(</dev/stdin)
     else
@@ -455,15 +529,20 @@ function importTree {
 
 
 function usage {
-    1>&2 echo "Usage: $0 ( -e tree | -E | -i tree | I | -l | -P ) -h url -u user -p passwd [-r realm -f file]"
+    1>&2 echo "Usage: $0 ( -e tree | -E | -i tree | I | -l | -d | -P ) -h url -u user -p passwd [-r realm -f file]"
     1>&2 echo
-    1>&2 echo "Export/import/prune authentication trees."
+    1>&2 echo "Export/import/list/describe/prune authentication trees."
     1>&2 echo
     1>&2 echo "Actions/tasks (must specify only one):"
     1>&2 echo "  -e tree   Export an authentication tree."
     1>&2 echo "  -E        Export all the trees in a realm."
+    1>&2 echo "  -S        Export all the trees in a realm as separate files of the format"
+    1>&2 echo "            FileprefixTreename.json."
+    1>&2 echo "  -s        Import all the trees in the current directory"
     1>&2 echo "  -i tree   Import an authentication tree."
     1>&2 echo "  -I        Import all the trees in a realm."
+    1>&2 echo "  -d        Describe a tree file if file name supplied, otherwise describe "
+    1>&2 echo "            all trees in the current directory"
     1>&2 echo "  -l        List all the trees in a realm."
     1>&2 echo "  -P        Prune orphaned configuration artifacts left behind after deleting"
     1>&2 echo "            authentication trees. You will be prompted before any destructive"
@@ -482,19 +561,22 @@ function usage {
     1>&2 echo "            performed in the realm specified. For all other users, login and"
     1>&2 echo "            subsequent operations will occur against the realm specified."
     1>&2 echo "  -f file   If supplied, export/list to and import from <file> instead of stdout"
-    1>&2 echo "            and stdin."
+    1>&2 echo "            and stdin. For -S, use as file prefix"
     exit 0
 }
 
 
 TASK=""
-while getopts ":i:Ie:Elh:r:u:p:Pf:" arg; do
+while getopts ":i:Ie:Eldh:r:u:p:Pf:sS" arg; do
     case $arg in
         e) TASK="export"; TREENAME="$OPTARG";;
         E) TASK="exportAll";;
+        s) TASK="importTreesSeparately";;
+        S) TASK="exportTreesSeparately";;
         i) TASK="import"; TREENAME="$OPTARG";;
         I) TASK="importAll";;
         l) TASK="list";;
+        d) TASK="describe";;
         P) TASK="prune";;
         h) AM="$OPTARG";;
         r) if [ $OPTARG == "/" ]; then REALM=""; else REALM="$OPTARG"; fi;;
@@ -521,9 +603,17 @@ elif [ "$TASK" == 'export' ] ; then
 elif [ "$TASK" == 'exportAll' ] ; then
     login
     exportAllTrees
+elif [ "$TASK" == 'exportTreesSeparately' ] ; then
+      login
+      exportTreesSeparately
+elif [ "$TASK" == 'importTreesSeparately' ] ; then
+      login
+      importTreesSeparately
 elif [ "$TASK" == 'list' ] ; then
     login
     listTrees
+elif [ "$TASK" == 'describe' ] ; then
+      describeTrees
 elif [ "$TASK" == 'prune' ] ; then
     login
     prune
