@@ -6,13 +6,16 @@ A shell script which will export an AM authentication tree from any realm (defau
 
 
 ## Usage: 
-    % amtree.sh ( -e tree | -E | -i tree | I | -l | -P ) -h url [-r realm -f file] -u user -p passwd  
+    % amtree.sh ( -e tree | -E | -i tree | I | -l | -d | -P ) -h url [-r realm -f file] -u user -p passwd  
     
     Export/import/prune authentication trees.  
   
     Actions/tasks (must specify only one):  
       -e tree   Export an authentication tree.  
-      -E        Export all the trees in a realm.  
+      -E        Export all the trees in a realm. 
+      -S        Export all the trees in a realm as separate files of the format
+                FileprefixTreename.json.
+      -s        Import all the trees in the current directory   
       -i tree   Import an authentication tree.  
       -I        Import all the trees into a realm.  
       -l        List all the trees in a realm.  
@@ -48,20 +51,26 @@ A shell script which will export an AM authentication tree from any realm (defau
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -E -f trees.json  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -E > trees.json  
   
-4) Import all the trees from a file into a sub-realm:  
+4) Export all the trees from the root realm to separate files in the current directory. This is the format for the SA Toolbox: 
+    % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -S  
+  
+5) Import all the trees from a file into a sub-realm:  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -I -f trees.json -r /parent/child  
     % cat trees.json | ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -I -r /parent/child  
   
-5) Clone a tree called "Login" to a tree called "ClonedLogin":  
+6) Import all the trees(*.json) from the currrent directory into a sub-realm:  
+    % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -s -r /parent/child  
+  
+7) Clone a tree called "Login" to a tree called "ClonedLogin":  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -e Login | ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -i ClonedLogin  
   
-6) Copy a tree called "Login" to a tree called "ClonedLogin" on another AM instance:  
+8) Copy a tree called "Login" to a tree called "ClonedLogin" on another AM instance:  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -e Login | ./amtree.sh -h https://another.domain.org/openam -u amadmin -p password -i ClonedLogin  
   
-7) Copy all the trees from one realm on one AM instnace to another realm on another AM instance:  
+9) Copy all the trees from one realm on one AM instnace to another realm on another AM instance:  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -E -r /internal | ./amtree.sh -h https://another.domain.org/openam -u amadmin -p password -I -r /external  
   
-8) Pruning:  
+10) Pruning:  
     % ./amtree.sh -P -h https://openam.example.com/openam -u amadmin -p password  
     % ./amtree.sh -P -h https://openam.example.com/openam -r /parent/child -u amadmin -p password  
   
@@ -76,9 +85,14 @@ A shell script which will export an AM authentication tree from any realm (defau
     Pruning.....................................  
     Done.
   
-9) List all the trees from the root realm to a file or the console:  
+11) List all the trees from the root realm to a file or the console:  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -l -f trees.txt  
     % ./amtree.sh -h https://openam.example.com/openam -u amadmin -p password -l
   
+12) Describe a tree, listing dependent nodes, trees, LDAP attributes and account credentials such as email:
+    If no file name is supplied, describe all json files in the current directory (from -S)
+    % ./amtree.sh  -d -f tree1.json  
+    % ./amtree.sh -d 
+
 ## Limitations:
 This tool can't export passwords (including API secrets, etc), so these need to be manually added back to an imported tree or alternatively, export the source tree to a file, edit the file to add the missing fields before importing. Any other dependencies than scripts needed for a tree must also exist prior to import, for example inner-trees and custom authentication JARs. Currently, scripts are NOT given a new UUID on import; an option to allow re-UUID-ing scripts might be added in the future.
