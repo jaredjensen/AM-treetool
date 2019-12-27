@@ -1,28 +1,7 @@
 #!/bin/bash
 #
-# Description: shell script which will export an AM authentication tree to standard output and re-import
-#              from standard input (optionally renaming the tree).
-#
-# Usage: amtree.sh ( -i treename | -e treename ) -h <AM host URL> -u <AM admin> -p <AM admin password>"
-# amtree.sh  -e OnboardingReCAPTCHA  -h https://jamie.frdpcloud.com -u forgerock -p Frdp-2010 > OnboardingReCAPTCHA.json
-# Examples:
-#
-#   1) Export a tree called "Login" to a file:
-#   % ./amtree.sh -e Login -h https://openam.example.com/openam -u amadmin -p password > login.json
-#
-#   2) Import a tree a file and rename it to "LoginTree":
-#   % cat login.json | ./amtree.sh -i LoginTree -h https://openam.example.com/openam -u amadmin -p password
-#
-#   3) Clone a tree called "Login" to a tree called "ClonedLogin":
-#   % ./amtree.sh -e Login -h https://openam.example.com/openam -u amadmin -p password | ./amtree.sh -i ClonedLogin -h https://openam.example.com/openam -u amadmin -p password
-#
-#   4) Copy a tree called "Login" to a tree called "ClonedLogin" on another AM instance:
-#   % ./amtree.sh -e Login -h https://openam.example.com/openam -u amadmin -p password | ./amtree.sh -i ClonedLogin -h https://another.domain.org/openam -u amadmin -p password
-#
-# Limitations: this tool can't export passwords (including API secrets, etc), so these need to be manually added
-#              back to an imported tree or alternatively, export the source tree to a file, edit the file to add
-#              the missing fields before importing. Any other dependencies needed for a tree must also exist prior
-#              to import, for example inner-trees, scripts, and custom authentication JARs.
+# shell script which will export an AM authentication tree to standard output and re-import
+# from standard input (optionally renaming the tree).
 #
 # Uncomment the following line for debug:
 # set -x
@@ -166,24 +145,48 @@ function describeTrees {
 }
 
 function describeTree {
-  echo "Tree Name: ($(cat $1 | jq -r '.tree._id'))"
-  echo You must export each tree to a separate file \(-S\)
-  echo
-  echo Make sure you have copied the following nodes to:
-  echo /opt/forgerock/ext/tomcat/instances-8.5/alpha/webapps/openam/WEB-INF/lib/
-  echo
-  cat $1 | jq -r  '.tree|.nodes|.[]|.nodeType'
-  echo
-  echo Import the following trees before importing this tree:
-  cat $1 | jq -r '.nodes|.[]|.tree'
-  echo
-  echo You need to configure the following nodes for profile attributes
-  echo FIXTHIS parameterize tree files
-  grep profileAttribute $1
-  grep ipDataStoreField $1
-  echo
-  echo You need to configure demo accounts for the following
-  grep fromEmailAddress $1
+    JTREE=$(cat $1)
+    TREE=$(echo $JTREE | jq -r '.tree._id')
+    NODES=($(echo $JTREE | jq -r  '.tree|.nodes|.[]|.nodeType' | sort -u))
+    # the @base64 is ugly but the only way I found to make the array work with spaces in the script name
+    SCRIPTS=($(echo $JTREE | jq -r '.scripts|.[]|.name|@base64' | sort -u))
+    DEP_TREES=($(echo $JTREE | jq -r '.nodes|keys[] as $key|select(.[$key]._type._id=="InnerTreeEvaluatorNode")|.[$key]|.tree'))
+    echo Tree: $TREE
+    echo -n =====
+    for ((i = 0; i < (`echo $TREE | wc -c`); i++)) ; do
+        echo -n "="
+    done;
+    echo
+    echo
+    echo Nodes:
+    echo -----
+    if [ ${#NODES[@]} -eq 0 ]; then
+        echo None
+    else
+        for NODE in "${NODES[@]}" ; do
+            echo "- $NODE"
+        done;
+    fi
+    echo
+    echo Scripts:
+    echo -------
+    if [ ${#SCRIPTS[@]} -eq 0 ]; then
+        echo None
+    else
+        for SCRIPT in "${SCRIPTS[@]}" ; do
+            echo "- $(echo $SCRIPT | base64 -d)"
+        done;
+    fi
+    echo
+    echo Dependencies:
+    echo ------------
+        if [ ${#DEP_TREES[@]} -eq 0 ]; then
+        echo None
+    else
+        for DEP_TREE in "${DEP_TREES[@]}" ; do
+            echo "- $DEP_TREE"
+        done;
+    fi
 }
 
 function exportAllTrees {
@@ -268,7 +271,9 @@ function exportTree {
         local NODE=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
         1>&2 echo -n "."
         EXPORTS=$(echo $EXPORTS "{ \"nodes\": { \"$each\": $NODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
-        # export Page Nodes
+
+        # Export inner nodes
+        # Currently the only node type containing inner nodes is "PageNode". Additional types can be defined in CONTAINERNODETYPES.
         if [ "$TYPE" == "PageNode" ]; then
             local PAGES=$(echo $NODE | jq -r '.nodes | keys | .[]')
             for page in $PAGES; do
@@ -447,8 +452,11 @@ function importTree {
         TREES=$(<$FILE)
     fi
     1>&2 echo -n "Importing $1."
-    HASHMAP="{}"
+    
+    # initialize hashmap for re-UUID-ing
+   HASHMAP="{}"
 
+    # determine origin. this will allow detection if importing into a new or the same environment the tree was exported from
     ORIGIN=$(eval $ORIGIN_CMD)
 
     # Scripts
@@ -468,6 +476,7 @@ function importTree {
     done
 
     # Inner nodes
+    # Currently the only node type containing inner nodes is "PageNode". Additional types can be defined in CONTAINERNODETYPES.
     NODES=$(echo $TREES | jq -r  '.innernodes | keys | .[]')
     for each in $NODES
     do
@@ -486,6 +495,7 @@ function importTree {
         fi
     done
 
+    # Nodes
     NODES=$(echo $TREES | jq -r  '.nodes | keys | .[]')
     for each in $NODES
     do
@@ -541,8 +551,8 @@ function usage {
     1>&2 echo "  -s        Import all the trees in the current directory"
     1>&2 echo "  -i tree   Import an authentication tree."
     1>&2 echo "  -I        Import all the trees in a realm."
-    1>&2 echo "  -d        Describe a tree file if file name supplied, otherwise describe "
-    1>&2 echo "            all trees in the current directory"
+    1>&2 echo "  -d        If -f is supplied, describe the indicated tree export file"
+    1>&2 echo "            otherwise describe all tree export files in the current directory"
     1>&2 echo "  -l        List all the trees in a realm."
     1>&2 echo "  -P        Prune orphaned configuration artifacts left behind after deleting"
     1>&2 echo "            authentication trees. You will be prompted before any destructive"
