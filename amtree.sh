@@ -150,10 +150,25 @@ function listTrees {
 
 # isCustomTree {json}"
 function isCustomTree {
-    NODES=($(echo $1 | jq -r  '.nodes|.[]|.nodeType' | sort -u))
-    for NODE in "${NODES[@]}" ; do
-        if ! itemIn "$NODE" "${OOTBNODETYPES[@]}" ; then
+    local TREE=$1
+    local NODES=$(echo $TREE| jq -r  '.nodes | keys | .[]')
+    for each in $NODES ; do
+        local TYPE=$(echo $TREE | jq -r --arg NODE "$each" '.nodes | .[$NODE] | .nodeType')
+        if ! itemIn "$TYPE" "${OOTBNODETYPES[@]}" ; then
             return 1
+        fi
+        local NODE=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
+
+        # inner nodes
+        # Currently the only node type containing inner nodes is "PageNode". Additional types can be defined in CONTAINERNODETYPES.
+        if itemIn "$TYPE" "${CONTAINERNODETYPES[@]}" ; then
+            local PAGES=$(echo $NODE | jq -r '.nodes | keys | .[]')
+            for page in $PAGES; do
+                local PAGENODETYPE=$(echo $NODE | jq -r --arg IND "$page" '.nodes[($IND|tonumber)] | .nodeType')
+                if ! itemIn "$PAGENODETYPE" "${OOTBNODETYPES[@]}" ; then
+                    return 1
+                fi
+            done
         fi
     done
     return 0
@@ -328,7 +343,7 @@ function exportTree {
 
         # Export inner nodes
         # Currently the only node type containing inner nodes is "PageNode". Additional types can be defined in CONTAINERNODETYPES.
-        if [ "$TYPE" == "PageNode" ]; then
+        if itemIn "$TYPE" "${CONTAINERNODETYPES[@]}" ; then
             local PAGES=$(echo $NODE | jq -r '.nodes | keys | .[]')
             for page in $PAGES; do
                 local PAGENODEID=$(echo $NODE | jq -r --arg IND "$page" '.nodes[($IND|tonumber)] | ._id')
