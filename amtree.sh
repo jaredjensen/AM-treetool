@@ -7,7 +7,8 @@
 # set -x
 
 OOTBNODETYPES=( "AbstractSocialAuthLoginNode" "AccountLockoutNode" "AgentDataStoreDecisionNode" "AnonymousUserNode" "AuthLevelDecisionNode" "ChoiceCollectorNode" "CookiePresenceDecisionNode" "CreatePasswordNode" "DataStoreDecisionNode" "InnerTreeEvaluatorNode" "LdapDecisionNode" "MessageNode" "MetadataNode" "MeterNode" "ModifyAuthLevelNode" "OneTimePasswordCollectorDecisionNode" "OneTimePasswordGeneratorNode" "OneTimePasswordSmsSenderNode" "OneTimePasswordSmtpSenderNode" "PageNode" "PasswordCollectorNode" "PersistentCookieDecisionNode" "PollingWaitNode" "ProvisionDynamicAccountNode" "ProvisionIdmAccountNode" "PushAuthenticationSenderNode" "PushResultVerifierNode" "RecoveryCodeCollectorDecisionNode" "RecoveryCodeDisplayNode" "RegisterLogoutWebhookNode" "RemoveSessionPropertiesNode" "RetryLimitDecisionNode" "ScriptedDecisionNode" "SessionDataNode" "SetFailureUrlNode" "SetPersistentCookieNode" "SetSessionPropertiesNode" "SetSuccessUrlNode" "SocialFacebookNode" "SocialGoogleNode" "SocialNode" "SocialOAuthIgnoreProfileNode" "SocialOpenIdConnectNode" "TimerStartNode" "TimerStopNode" "UsernameCollectorNode" "WebAuthnAuthenticationNode" "WebAuthnRegistrationNode" "ZeroPageLoginNode")
-CONTAINERNODETYPES=( "PageNode" "CustomPageNode" "Test" )
+CONTAINERNODETYPES=( "PageNode" "CustomPageNode" )
+SCRIPTNODETYPES=( "ScriptedDecisionNode" "ClientScriptNode" "CustomScriptNode" )
 AM=""
 REALM=""
 AMADMIN=""
@@ -30,7 +31,7 @@ function login {
         AREALM=""
     fi
     shopt -u nocasematch
-    AMSESSION=$(curl -s -k -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:$AMADMIN" -H "X-OpenAM-Password:$AMPASSWD" $AM/json${AREALM}/authenticate | jq .tokenId | sed -e 's/\"//g')
+    AMSESSION=$(curl -s -k -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:$AMADMIN" -H "X-OpenAM-Password:$AMPASSWD" "$AM/json${AREALM}/authenticate?authIndexType=service&authIndexValue=adminconsoleservice" | jq .tokenId | sed -e 's/\"//g')
     if [[ -z $AMSESSION ]]; then
         1>&2 echo "Failed to sign in to AM. Check AM URL, realm, and credentials."
         exit -1
@@ -191,22 +192,36 @@ function isMultiTree {
     return 1
 }
 
-
-function describeTrees {
-  if [[ -z $FILE ]] ; then
-    local FILES=($(ls -1tr *.json))
-    for TREEFILE in "${FILES[@]}" ; do
-      describeTree $TREEFILE
-    done;
-  else
-      describeTree $FILE
-  fi
+function describeAllTrees {
+    if [[ -z $AM ]] ; then
+        local FILES=($(ls -1tr *.json))
+        for TREEFILE in "${FILES[@]}" ; do
+            describe "$(cat $TREEFILE)"
+        done;
+    else
+        login
+        local JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+        local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
+        for TREE in "${TREES[@]}" ; do
+            describe "$(exportTree "$TREE" true)"
+        done;
+    fi
 }
 
 function describeTree {
-    JTREE=$(cat $1)
+    if [[ -z $AM ]] ; then
+        describe "$(cat $FILE)"
+    else
+        login
+        describe "$(exportTree "$TREENAME" true)"
+    fi
+}
+
+function describe {
+    JTREE="$1"
     TREE=$(echo $JTREE | jq -r '.tree._id')
-    NODES=($(echo $JTREE | jq -r  '.tree|.nodes|.[]|.nodeType' | sort -u))
+    RAWNODES=($(echo $JTREE | jq -r  '.["nodes","innernodes"]|.[]|._type|._id' | sort -s))
+    NODES=($(echo $JTREE | jq -r  '.["nodes","innernodes"]|.[]|._type|._id' | sort -u))
     # the @base64 is ugly but the only way I found to make the array work with spaces in the script name
     SCRIPTS=($(echo $JTREE | jq -r '.scripts|.[]|.name|@base64' | sort -u))
     DEP_TREES=($(echo $JTREE | jq -r '.nodes|keys[] as $key|select(.[$key]._type._id=="InnerTreeEvaluatorNode")|.[$key]|.tree'))
@@ -225,9 +240,9 @@ function describeTree {
         CUSTOM=false
         for NODE in "${NODES[@]}" ; do
             if itemIn "$NODE" "${OOTBNODETYPES[@]}" ; then
-                echo "- $NODE"
+                echo "- $(grep -o $NODE <<< ${RAWNODES[@]} | wc -l  | xargs) $NODE"
             else
-                echo "* $NODE"
+                echo "* $(grep -o $NODE <<< ${RAWNODES[@]} | wc -l  | xargs) $NODE"
                 CUSTOM=true
             fi
         done;
@@ -292,8 +307,6 @@ function exportTreesSeparately {
 
 function importTreesSeparately {
     echo "Import all trees in the current directory"
-#    local JTREES=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
-#    local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
     local FILES=($(ls -1tr *.json))
     local JTREES=$'{\n  \"trees\": {\n    \"'
     for TREEFILE in "${FILES[@]}" ; do
@@ -301,17 +314,16 @@ function importTreesSeparately {
       JTREES=$JTREES$TREENAME$'\":\n'
       JTREES=$JTREES$(cat $TREEFILE)$',\n    \"'
     done;
-# Remove the comma from the end of the last file import and close the JSON
+    # Remove the comma from the end of the last file import and close the JSON
     JTREES=${JTREES%???????}
     jtrees=$JTREES$'  }\n}'
-# get list of already installed trees for dependency and conflict resolution
+    # get list of already installed trees for dependency and conflict resolution
     local jinstalled=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local installed=($(echo $jinstalled| jq -r  '.result|.[]|._id'))
     local resolved=()
     local unresolved=()
     resolve
     1>&2 echo "."
-# local trees=$(echo $jtrees | jq -r  '.trees | keys | .[]')
     for tree in ${resolved[@]} ; do
       local jtree=$(echo $jtrees | jq --arg tree $tree '.trees[$tree]')
       echo $jtree | importTree "$tree" "noFile"
@@ -321,7 +333,7 @@ done
 # exportTree <tree> <flag>
 # where tree is the name of tree to export and if flag is set to anything, stdout will be used for output even if $FILE is set.
 function exportTree {
-    1>&2 echo -n "Exporting $1 "
+    1>&2 echo -n "$1"
     local TREE=$(curl -f -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$1 | jq -c '. | del (._rev)')
     if [ -z "$TREE" ]; then
         1>&2 echo "Failed to find tree: $1"
@@ -353,8 +365,8 @@ function exportTree {
                 EXPORTS=$(echo $EXPORTS "{ \"innernodes\": { \"$PAGENODEID\": $PAGENODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
             done
         fi
-        # Export Scripts
-        if [ "$TYPE" == "ScriptedDecisionNode" ]; then
+        # Export scripts referenced by nodes in this tree
+        if itemIn "$TYPE" "${SCRIPTNODETYPES[@]}" ; then
             local SCRIPTID=$(echo $NODE | jq -r '.script')
             local SCRIPT=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/scripts/$SCRIPTID | jq '. | del (._rev)')
             1>&2 echo -n "."
@@ -513,7 +525,7 @@ function importTree {
     else
         TREES=$(<$FILE)
     fi
-    1>&2 echo -n "Importing $1."
+    1>&2 echo -n "$1."
     
     # initialize hashmap for re-UUID-ing
     HASHMAP="{}"
@@ -585,6 +597,7 @@ function importTree {
         fi
     done
 
+    # Tree
     TREE=$(echo $TREES | jq -r  '.tree')
     ID=$1
     TREE=$(echo $TREE | jq --arg id $ID '._id=$id')
@@ -601,32 +614,32 @@ function importTree {
 
 
 function usage {
-    1>&2 echo "Usage: $0 ( -e tree | -E | -i tree | I | -l | -d | -P ) -h url -u user -p passwd [-r realm -f file]"
+    1>&2 echo "Usage: $0 ( -e | -E | -i | -I | -l | -d | -P ) -h url -u user -p passwd [-r realm -f file -t tree]"
     1>&2 echo
     1>&2 echo "Export/import/list/describe/prune authentication trees."
     1>&2 echo
     1>&2 echo "Actions/tasks (must specify only one):"
-    1>&2 echo "  -e tree   Export an authentication tree."
+    1>&2 echo "  -e        Export an authentication tree."
     1>&2 echo "  -E        Export all the trees in a realm."
     1>&2 echo "  -S        Export all the trees in a realm as separate files of the format"
     1>&2 echo "            FileprefixTreename.json."
     1>&2 echo "  -s        Import all the trees in the current directory"
-    1>&2 echo "  -i tree   Import an authentication tree."
+    1>&2 echo "  -i        Import an authentication tree."
     1>&2 echo "  -I        Import all the trees in a realm."
-    1>&2 echo "  -d        If -f is supplied, describe the indicated tree export file"
-    1>&2 echo "            otherwise describe all tree export files in the current directory"
+    1>&2 echo "  -d        If -h is supplied, describe the indicated tree in the realm,"
+    1>&2 echo "            otherwise describe the tree export file indicated by -f"
+    1>&2 echo "  -D        If -h is supplied, describe all the trees in the realm, otherwise"
+    1>&2 echo "            describe all tree export files in the current directory"
     1>&2 echo "  -l        List all the trees in a realm."
     1>&2 echo "  -P        Prune orphaned configuration artifacts left behind after deleting"
     1>&2 echo "            authentication trees. You will be prompted before any destructive"
     1>&2 echo "            operations are performed."
     1>&2 echo
-    1>&2 echo "Mandatory parameters:"
+    1>&2 echo "Parameters:"
     1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
     1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
     1>&2 echo "            rights to manages authentication trees."
     1>&2 echo "  -p passwd Password."
-    1>&2 echo
-    1>&2 echo "Optional parameters:"
     1>&2 echo "  -r realm  Realm. If not specified, the root realm '/' is assumed. Specify"
     1>&2 echo "            realm as '/parent/child'. If using 'amadmin' as the user, login will"
     1>&2 echo "            happen against the root realm but subsequent operations will be"
@@ -634,33 +647,269 @@ function usage {
     1>&2 echo "            subsequent operations will occur against the realm specified."
     1>&2 echo "  -f file   If supplied, export/list to and import from <file> instead of stdout"
     1>&2 echo "            and stdin. For -S, use as file prefix"
+    1>&2 echo "  -t tree   Specify the name of an authentication tree. Mandatory in combination"
+    1>&2 echo "            with the following actions: -i, -e, -d."
+    1>&2 echo
+    1>&2 echo "Run ./amtree.sh without any parameters to display this usage information."
     exit 0
 }
 
 
 TASK=""
-while getopts ":i:Ie:Eldh:r:u:p:Pf:sS" arg; do
+while getopts "?iIeEldDh:r:u:p:Pf:sSt:" arg; do
     case $arg in
-        e) TASK="export"; TREENAME="$OPTARG";;
+        e) TASK="export";;
         E) TASK="exportAll";;
         s) TASK="importTreesSeparately";;
         S) TASK="exportTreesSeparately";;
-        i) TASK="import"; TREENAME="$OPTARG";;
+        i) TASK="import";;
         I) TASK="importAll";;
         l) TASK="list";;
         d) TASK="describe";;
+        D) TASK="describeAll";;
         P) TASK="prune";;
         h) AM="$OPTARG";;
         r) if [ $OPTARG == "/" ]; then REALM=""; else REALM="$OPTARG"; fi;;
         u) AMADMIN="$OPTARG";;
         p) AMPASSWD="$OPTARG";;
         f) FILE="$OPTARG";;
+        t) TREENAME="$OPTARG";;
         \?) echo "Unknown option: $arg"; usage;;
    esac
 done
 
+function checkParams {
+    if [ "$TASK" == 'import' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        # -t: TREENAME
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] || [[ -z $TREENAME ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -i        Import an authentication tree."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            1>&2 echo "  -t tree   Specify the name of an authentication tree. Mandatory in combination"
+            1>&2 echo "            with the following actions: -i, -e, -d."
+            exit 1
+        fi
+    elif [ "$TASK" == 'importAll' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -I        Import all the trees in a realm."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    elif [ "$TASK" == 'export' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        # -t: TREENAME
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] || [[ -z $TREENAME ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -e        Export an authentication tree."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            1>&2 echo "  -t tree   Specify the name of an authentication tree. Mandatory in combination"
+            1>&2 echo "            with the following actions: -i, -e, -d."
+            exit 1
+        fi
+    elif [ "$TASK" == 'exportAll' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -E        Export all the trees in a realm."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    elif [ "$TASK" == 'exportTreesSeparately' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -S        Export all the trees in a realm as separate files of the format"
+            1>&2 echo "            FileprefixTreename.json."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    elif [ "$TASK" == 'importTreesSeparately' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -s        Import all the trees in the current directory"
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    elif [ "$TASK" == 'list' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -l        List all the trees in a realm."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    elif [ "$TASK" == 'describe' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        #
+        # OR
+        #
+        # -f: FILE
+
+        # only -h supplied
+        if [[ -n $AM ]] && [[ -z $FILE ]] ; then
+            if [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+                1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+                1>&2 echo
+                1>&2 echo "Action/task:"
+                1>&2 echo "  -d        If -h is supplied, describe the indicated tree in the realm,"
+                1>&2 echo "            otherwise describe the tree export file indicated by -f"
+                1>&2 echo
+                1>&2 echo "Mandatory Parameters:"
+                1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+                1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+                1>&2 echo "            rights to manages authentication trees."
+                1>&2 echo "  -p passwd Password."
+                exit 1
+            fi
+        
+        # only -f supplied
+        elif [[ -n $FILE ]] && [[ -z $AM ]] ; then
+            true = true
+
+        # neither -h nor -f supplied
+        elif [[ -z $FILE ]] && [[ -z $AM ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -d        If -h is supplied, describe the indicated tree in the realm,"
+            1>&2 echo "            otherwise describe the tree export file indicated by -f"
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            1>&2 echo "  -f file   If supplied, export/list to and import from <file> instead of stdout"
+            1>&2 echo "            and stdin. For -S, use as file prefix"
+            exit 1
+
+        # both -h and -f supplied
+        elif [[ -n $FILE ]] && [[ -n $AM ]] ; then
+            1>&2 echo "Error: Conflicting parameters supplied: Use -h or -f but not both."
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -d        If -h is supplied, describe the indicated tree in the realm,"
+            1>&2 echo "            otherwise describe the tree export file indicated by -f"
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            1>&2 echo "  -f file   If supplied, export/list to and import from <file> instead of stdout"
+            1>&2 echo "            and stdin. For -S, use as file prefix"
+            exit 1
+        fi
+    elif [ "$TASK" == 'describeAll' ] ; then
+        true = true
+
+    elif [ "$TASK" == 'prune' ] ; then
+        # mandatory params:
+        # -h: AM
+        # -u: AMADMIN
+        # -p: AMPASSWD
+        if [[ -z $AM ]] || [[ -z $AMADMIN ]] || [[ -z $AMPASSWD ]] ; then
+            1>&2 echo "Error: Missing mandatory parameter(s) for action/task!"
+            1>&2 echo
+            1>&2 echo "Action/task:"
+            1>&2 echo "  -P        Prune orphaned configuration artifacts left behind after deleting"
+            1>&2 echo "            authentication trees. You will be prompted before any destructive"
+            1>&2 echo "            operations are performed."
+            1>&2 echo
+            1>&2 echo "Mandatory Parameters:"
+            1>&2 echo "  -h url    Access Management host URL, e.g.: https://login.example.com/openam"
+            1>&2 echo "  -u user   Username to login with. Must be an admin user with appropriate"
+            1>&2 echo "            rights to manages authentication trees."
+            1>&2 echo "  -p passwd Password."
+            exit 1
+        fi
+    fi
+}
+
+checkParams
 
 if [ "$TASK" == 'import' ] ; then
+    # mandatory params:
+    # -h: AM
+    # -u: AMADMIN
+    # -p: AMPASSWD
     login
     importTree "$TREENAME"
 elif [ "$TASK" == 'importAll' ] ; then
@@ -685,7 +934,9 @@ elif [ "$TASK" == 'list' ] ; then
     login
     listTrees
 elif [ "$TASK" == 'describe' ] ; then
-      describeTrees
+      describeTree
+elif [ "$TASK" == 'describeAll' ] ; then
+      describeAllTrees
 elif [ "$TASK" == 'prune' ] ; then
     login
     prune
