@@ -23,6 +23,10 @@ if ! [ -x "$(command -v md5)" ]; then
         1>&2 echo 'Error: neither md5 nor md5sum is installed.'
     fi
 fi
+if ! [ -x "$(command -v jq)" ]; then
+    1>&2 echo 'Error: jq is required but not installed.'
+    exit 1
+fi
 
 function login {
     AREALM=$REALM
@@ -31,7 +35,9 @@ function login {
         AREALM=""
     fi
     shopt -u nocasematch
-    AMSESSION=$(curl -s -k -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:$AMADMIN" -H "X-OpenAM-Password:$AMPASSWD" "$AM/json${AREALM}/authenticate?authIndexType=service&authIndexValue=adminconsoleservice" | jq .tokenId | sed -e 's/\"//g')
+    # AMSESSION=$(curl -s -k -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:${AMADMIN}" -H "X-OpenAM-Password:${AMPASSWD}" "$AM/json${AREALM}/authenticate" | jq .tokenId | sed -e 's/\"//g')
+    RESPONSE=$(curl -j -c cookies.txt -s -k -i -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:${AMADMIN}" -H "X-OpenAM-Password:${AMPASSWD}" "$AM/json${AREALM}/authenticate")
+    AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"tokenId/{"tokenId/p' | jq .tokenId | sed -e 's/\"//g')
     if [[ -z $AMSESSION ]]; then
         1>&2 echo "Failed to sign in to AM. Check AM URL, realm, and credentials."
         exit -1
@@ -48,7 +54,7 @@ function prune {
 
     #get all the trees and their node references
     #these are all the nodes that are actively in use. every node instance we find in the next step, that is not in this list, is orphaned and will be removed/pruned.
-    JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    JTREES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     ACTIVENODES=($(echo $JTREES| jq -r  '.result|.[]|.nodes|keys|.[]'))
 
     #do any of the active nodes have inner nodes?
@@ -58,7 +64,7 @@ function prune {
 
         #get the inner nodes for each container node
         for CONTAINERNODE in "${CONTAINERNODES[@]}" ; do
-            JINNERNODES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$CONTAINERNODETYPE/$CONTAINERNODE)
+            JINNERNODES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$CONTAINERNODETYPE/$CONTAINERNODE)
             local ERROR="$(echo $JINNERNODES | jq -r '.code')"
             if [ "$ERROR" == "null" ] ; then
                 INNERNODES+=($(echo $JINNERNODES | jq -r '.nodes|.[]|._id'))
@@ -73,7 +79,7 @@ function prune {
     ACTIVENODES+=(${INNERNODES[@]})
 
     #get all the node instances
-    JNODES=$(curl -s -k -X POST --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" -H  "Content-Type:application/json" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes?_action=nextdescendents)
+    JNODES=$(curl -b cookies.txt -s -k -X POST --data "{}" -H "Accept-API-Version:resource=1.0" -H  "Content-Type:application/json" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes?_action=nextdescendents)
     NODES=($(echo $JNODES| jq -r  '.result|.[]|._id'))
     ORPHANEDNODES=()
 
@@ -107,7 +113,7 @@ function prune {
             do
                 1>&2 echo -n "."
                 TYPE=$(echo $JNODES | jq -r --arg id "$NODE" '.result|.[]|select(._id==$id)|._type|._id')
-                RESULT=$(curl -s -k -X DELETE -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NODE)
+                RESULT=$(curl -b cookies.txt -s -k -X DELETE -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NODE)
             done
             1>&2 echo
             1>&2 echo "Done."
@@ -124,7 +130,7 @@ function prune {
 
 
 function listTrees {
-    local JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local JTREES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local TREES=($(echo $JTREES| jq -r '.result|.[]|._id'))
     if [[ -z $FILE ]] ; then
         CUSTOM=false
@@ -158,7 +164,7 @@ function isCustomTree {
         if ! itemIn "$TYPE" "${OOTBNODETYPES[@]}" ; then
             return 1
         fi
-        local NODE=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
+        local NODE=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
 
         # inner nodes
         # Currently the only node type containing inner nodes is "PageNode". Additional types can be defined in CONTAINERNODETYPES.
@@ -200,7 +206,7 @@ function describeAllTrees {
         done;
     else
         login
-        local JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+        local JTREES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
         local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
         for TREE in "${TREES[@]}" ; do
             describe "$(exportTree "$TREE" true)"
@@ -274,7 +280,7 @@ function describe {
 }
 
 function exportAllTrees {
-    local JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local JTREES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
     local EXPORTS="{ \"trees\":{} }"
     for TREE in "${TREES[@]}" ; do
@@ -293,7 +299,7 @@ function exportAllTrees {
 function exportTreesSeparately {
     local FILEPREFIX=$FILE
     echo "Export all trees to files"
-    local JTREES=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local JTREES=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local TREES=($(echo $JTREES| jq -r  '.result|.[]|._id'))
     local EXPORTS="{ \"trees\":{} }"
     for TREE in "${TREES[@]}" ; do
@@ -310,31 +316,30 @@ function importTreesSeparately {
     local FILES=($(ls -1tr *.json))
     local JTREES=$'{\n  \"trees\": {\n    \"'
     for TREEFILE in "${FILES[@]}" ; do
-      local TREENAME=${TREEFILE%.*}
-      JTREES=$JTREES$TREENAME$'\":\n'
-      JTREES=$JTREES$(cat $TREEFILE)$',\n    \"'
+        local TREENAME=${TREEFILE%.*}
+        JTREES=$JTREES$TREENAME$'\":\n'
+        JTREES=$JTREES$(cat $TREEFILE)$',\n    \"'
     done;
     # Remove the comma from the end of the last file import and close the JSON
     JTREES=${JTREES%???????}
     jtrees=$JTREES$'  }\n}'
     # get list of already installed trees for dependency and conflict resolution
-    local jinstalled=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local jinstalled=$(curl -b cookies.txt -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local installed=($(echo $jinstalled| jq -r  '.result|.[]|._id'))
     local resolved=()
     local unresolved=()
     resolve
-    1>&2 echo "."
     for tree in ${resolved[@]} ; do
-      local jtree=$(echo $jtrees | jq --arg tree $tree '.trees[$tree]')
-      echo $jtree | importTree "$tree" "noFile"
-done
+        local jtree=$(echo $jtrees | jq --arg tree $tree '.trees[$tree]')
+        echo $jtree | importTree "$tree" "noFile"
+    done
 }
 
 # exportTree <tree> <flag>
 # where tree is the name of tree to export and if flag is set to anything, stdout will be used for output even if $FILE is set.
 function exportTree {
     1>&2 echo -n "$1"
-    local TREE=$(curl -f -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$1 | jq -c '. | del (._rev)')
+    local TREE=$(curl -b cookies.txt -f -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$1 | jq -c '. | del (._rev)')
     if [ -z "$TREE" ]; then
         1>&2 echo "Failed to find tree: $1"
         exit -1
@@ -349,7 +354,7 @@ function exportTree {
 
     for each in $NODES ; do
         local TYPE=$(echo $TREE | jq -r --arg NODE "$each" '.nodes | .[$NODE] | .nodeType')
-        local NODE=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
+        local NODE=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$each | jq '. | del (._rev)')
         1>&2 echo -n "."
         EXPORTS=$(echo $EXPORTS "{ \"nodes\": { \"$each\": $NODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
 
@@ -360,7 +365,7 @@ function exportTree {
             for page in $PAGES; do
                 local PAGENODEID=$(echo $NODE | jq -r --arg IND "$page" '.nodes[($IND|tonumber)] | ._id')
                 local PAGENODETYPE=$(echo $NODE | jq -r --arg IND "$page" '.nodes[($IND|tonumber)] | .nodeType')
-                local PAGENODE=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$PAGENODETYPE/$PAGENODEID | jq '. | del (._rev)')
+                local PAGENODE=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$PAGENODETYPE/$PAGENODEID | jq '. | del (._rev)')
                 1>&2 echo -n "."
                 EXPORTS=$(echo $EXPORTS "{ \"innernodes\": { \"$PAGENODEID\": $PAGENODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
             done
@@ -368,7 +373,7 @@ function exportTree {
         # Export scripts referenced by nodes in this tree
         if itemIn "$TYPE" "${SCRIPTNODETYPES[@]}" ; then
             local SCRIPTID=$(echo $NODE | jq -r '.script')
-            local SCRIPT=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/scripts/$SCRIPTID | jq '. | del (._rev)')
+            local SCRIPT=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/scripts/$SCRIPTID | jq '. | del (._rev)')
             1>&2 echo -n "."
             EXPORTS=$(echo $EXPORTS "{ \"scripts\": { \"$SCRIPTID\": $SCRIPT } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
         fi
@@ -477,14 +482,16 @@ function resolve {
             # unresolved=( "${unresolved[@]/$tree}" )
             # 1>&2 echo "  unresolved after: ${#unresolved[@]}"
         else
-            unresolved+=( $tree )
+            if ! itemIn "$tree" "${unresolved[@]}" ; then
+                unresolved+=( $tree )
+            fi
         fi
     done
     after=${#unresolved[@]}
     # 1>&2 echo "resolve: after=$after"
     if [[ -n $1 ]] && [[ $after -eq $before ]] ; then
-        1>&2 echo "Unresolvable dependencies. Aborting."
-        return 1
+        1>&2 echo
+        1>&2 echo "Trees with unresolvable dependencies: ${unresolved[@]}"
     elif [[ $after -gt 0 ]] ; then
         # 1>&2 echo "continuing dependency resolution."
         resolve $after
@@ -501,12 +508,11 @@ function importAllTrees {
     fi
 
     # get list of already installed trees for dependency and conflict resolution
-    local jinstalled=$(curl -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
+    local jinstalled=$(curl -b cookies.txt -s -k -X GET --data "{}" -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees?_queryFilter=true)
     local installed=($(echo $jinstalled| jq -r  '.result|.[]|._id'))
     local resolved=()
     local unresolved=()
     resolve
-    1>&2 echo "."
 
     # local trees=$(echo $jtrees | jq -r  '.trees | keys | .[]')
     for tree in ${resolved[@]} ; do
@@ -541,7 +547,7 @@ function importTree {
         NAME=$(echo $SCRIPT | jq -r '.name')
         1>&2 echo -n "."
         #1>&2 echo "Importing script $NAME ($each)"
-        RESULT=$(curl -s -k -X PUT --data "$SCRIPT" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/scripts/$each)
+        RESULT=$(curl -b cookies.txt -s -k -X PUT --data "$SCRIPT" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/scripts/$each)
         if [ "$(echo $RESULT | jq '._id')" == "null" ]; then
             1>&2 echo "Error importing script $NAME ($each): $RESULT"
             1>&2 echo "$SCRIPT"
@@ -561,7 +567,7 @@ function importTree {
         NEWNODE=$(echo $INNERNODE | jq ._id=\"${NEWUUID}\")
         1>&2 echo -n "."
         #1>&2 echo "Importing inner node $TYPE ($NEWUUID)"
-        RESULT=$(curl -s -k -X PUT --data "$NEWNODE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NEWUUID)
+        RESULT=$(curl -b cookies.txt -s -k -X PUT --data "$NEWNODE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NEWUUID)
         if [ "$(echo $RESULT | jq '._id')" == "null" ]; then
             1>&2 echo "Error importing inner node $TYPE ($NEWUUID): $RESULT"
             1>&2 echo "$NEWNODE"
@@ -589,7 +595,7 @@ function importTree {
         fi
         1>&2 echo -n "."
         #1>&2 echo "Importing node $TYPE ($NEWUUID)"
-        RESULT=$(curl -s -k -X PUT --data "$NEWNODE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NEWUUID)
+        RESULT=$(curl -b cookies.txt -s -k -X PUT --data "$NEWNODE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$TYPE/$NEWUUID)
         if [ "$(echo $RESULT | jq '._id')" == "null" ]; then
             1>&2 echo "Error importing node $TYPE ($NEWUUID): $RESULT"
             1>&2 echo "$NEWNODE"
@@ -608,7 +614,7 @@ function importTree {
         TREE=$(echo $TREE | sed -e 's/'$each'/'$NEW'/g')
     done
     #1>&2 echo "Importing tree $1"
-    curl -s -k -X PUT --data "$TREE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$ID > /dev/null
+    curl -b cookies.txt -s -k -X PUT --data "$TREE" -H "Accept-API-Version:resource=1.0" -H "Content-Type:application/json" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/trees/$ID > /dev/null
     1>&2 echo "."
 }
 
