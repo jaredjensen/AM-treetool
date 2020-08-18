@@ -562,7 +562,7 @@ function importTree {
     do
         INNERNODE=$(echo $TREES | jq --arg node $each '.innernodes[$node]')
         TYPE=$(echo $INNERNODE | jq -r '._type | ._id')
-        NEWUUID=$(uuidgen)
+        NEWUUID=$(echo `uuidgen` | awk '{print tolower($0)}')
         HASHMAP=$(echo $HASHMAP | jq --arg old $each --arg new $NEWUUID '.map[$old]=$new')
         NEWNODE=$(echo $INNERNODE | jq ._id=\"${NEWUUID}\")
         1>&2 echo -n "."
@@ -581,7 +581,7 @@ function importTree {
     do
         NODE=$(echo $TREES | jq --arg node $each '.nodes[$node]')
         TYPE=$(echo $NODE | jq -r '._type | ._id')
-        NEWUUID=$(uuidgen)
+        NEWUUID=$(echo `uuidgen` | awk '{print tolower($0)}')
         HASHMAP=$(echo $HASHMAP | jq --arg old $each --arg new $NEWUUID '.map[$old]=$new')
         NEWNODE=$(echo $NODE | jq ._id=\"${NEWUUID}\")
         # Need to re-UUID page nodes
