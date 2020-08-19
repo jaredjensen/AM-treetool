@@ -35,12 +35,12 @@ function login {
         AREALM=""
     fi
     shopt -u nocasematch
-    # AMSESSION=$(curl -s -k -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:${AMADMIN}" -H "X-OpenAM-Password:${AMPASSWD}" "$AM/json${AREALM}/authenticate" | jq .tokenId | sed -e 's/\"//g')
     RESPONSE=$(curl -j -c cookies.txt -s -k -i -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:${AMADMIN}" -H "X-OpenAM-Password:${AMPASSWD}" "$AM/json${AREALM}/authenticate")
-    AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"tokenId/{"tokenId/p' | jq .tokenId | sed -e 's/\"//g')
-    if [[ -z $AMSESSION ]]; then
-        1>&2 echo "Failed to sign in to AM. Check AM URL, realm, and credentials."
+    if [ "null" == "$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId)" ] ; then
+        1>&2 echo "Error: $(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq -r '.errorMessage')"
         exit -1
+    else
+        AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId | sed -e 's/\"//g')
     fi
 }
 
