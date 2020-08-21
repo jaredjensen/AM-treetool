@@ -6,42 +6,48 @@ A shell script which will export an AM authentication tree from any realm (defau
 
 
 ## Usage: 
-    % amtree.sh ( -e | -E | -i | -I | -l | -d | -P ) -h url -u user -p passwd [-r realm -f file -t tree]  
-    
+    % ./amtree.sh ( -e | -E | -i | -I | -l | -d | -P ) [-h url -u user -p passwd [-r realm -f file -t tree] -o version]
+
     Export/import/list/describe/prune authentication trees.
-    
+
     Actions/tasks (must specify only one):
-      -e        Export an authentication tree.
-      -E        Export all the trees in a realm.
-      -S        Export all the trees in a realm as separate files of the format
+    -e         Export an authentication tree.
+    -E         Export all the trees in a realm.
+    -S         Export all the trees in a realm as separate files of the format
                 FileprefixTreename.json.
-      -s        Import all the trees in the current directory
-      -i        Import an authentication tree.
-      -I        Import all the trees in a realm.
-      -d        If -h is supplied, describe the indicated tree in the realm,
+    -s         Import all the trees in the current directory
+    -i         Import an authentication tree.
+    -I         Import all the trees in a realm.
+    -d         If -h is supplied, describe the indicated tree in the realm,
                 otherwise describe the tree export file indicated by -f
-      -D        If -h is supplied, describe all the trees in the realm, otherwise
+    -D         If -h is supplied, describe all the trees in the realm, otherwise
                 describe all tree export files in the current directory
-      -l        List all the trees in a realm.
-      -P        Prune orphaned configuration artifacts left behind after deleting
+    -l         List all the trees in a realm.
+    -P         Prune orphaned configuration artifacts left behind after deleting
                 authentication trees. You will be prompted before any destructive
                 operations are performed.
-    
+
     Parameters:
-      -h url    Access Management host URL, e.g.: https://login.example.com/openam
-      -u user   Username to login with. Must be an admin user with appropriate
+    -h url     Access Management host URL, e.g.: https://login.example.com/openam
+    -u user    Username to login with. Must be an admin user with appropriate
                 rights to manages authentication trees.
-      -p passwd Password.
-      -r realm  Realm. If not specified, the root realm '/' is assumed. Specify
-                realm as '/parent/child'. If using 'amadmin' as the user, login will
-                happen against the root realm but subsequent operations will be
-                performed in the realm specified. For all other users, login and
-                subsequent operations will occur against the realm specified.
-      -f file   If supplied, export/list to and import from <file> instead of stdout
-                and stdin. For -S, use as file prefix
-      -t tree   Specify the name of an authentication tree. Mandatory in combination
-                with the following actions: -i, -e, -d.
-    
+    -p passwd  Password.
+    -r realm   Realm. If not specified, the root realm '/' is assumed. Specify
+                realm as '/parent/child'. If using 'amadmin' as the user, login
+                will happen against the root realm but subsequent operations will
+                be performed in the realm specified. For all other users, login
+                and subsequent operations will occur against the realm specified.
+    -f file    If supplied, export/list to and import from <file> instead of
+                stdout and stdin. For -S, use as file prefix
+    -t tree    Specify the name of an authentication tree. Mandatory in
+                combination with the following actions: -i, -e, -d.
+    -o version Override version. Notation: "X.Y.Z" e.g. "6.5.2"
+                Override detected version with any version. This is helpful in
+                order to check if trees in one environment would be compatible 
+                running in another environment (e.g. in preparation of migrating
+                from on-prem to ForgeRock Identity Cloud PaaS. Only impacts these
+                actions: -d, -l.
+
     Run ./amtree.sh without any parameters to display this usage information.
 
 ## Examples:
