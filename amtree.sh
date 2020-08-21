@@ -6,7 +6,10 @@
 # Uncomment the following line for debug:
 # set -x
 
-OOTBNODETYPES=( "AbstractSocialAuthLoginNode" "AccountLockoutNode" "AgentDataStoreDecisionNode" "AnonymousUserNode" "AuthLevelDecisionNode" "ChoiceCollectorNode" "CookiePresenceDecisionNode" "CreatePasswordNode" "DataStoreDecisionNode" "InnerTreeEvaluatorNode" "LdapDecisionNode" "MessageNode" "MetadataNode" "MeterNode" "ModifyAuthLevelNode" "OneTimePasswordCollectorDecisionNode" "OneTimePasswordGeneratorNode" "OneTimePasswordSmsSenderNode" "OneTimePasswordSmtpSenderNode" "PageNode" "PasswordCollectorNode" "PersistentCookieDecisionNode" "PollingWaitNode" "ProvisionDynamicAccountNode" "ProvisionIdmAccountNode" "PushAuthenticationSenderNode" "PushResultVerifierNode" "RecoveryCodeCollectorDecisionNode" "RecoveryCodeDisplayNode" "RegisterLogoutWebhookNode" "RemoveSessionPropertiesNode" "RetryLimitDecisionNode" "ScriptedDecisionNode" "SessionDataNode" "SetFailureUrlNode" "SetPersistentCookieNode" "SetSessionPropertiesNode" "SetSuccessUrlNode" "SocialFacebookNode" "SocialGoogleNode" "SocialNode" "SocialOAuthIgnoreProfileNode" "SocialOpenIdConnectNode" "TimerStartNode" "TimerStopNode" "UsernameCollectorNode" "WebAuthnAuthenticationNode" "WebAuthnRegistrationNode" "ZeroPageLoginNode")
+OOTBNODETYPES_6=( "AbstractSocialAuthLoginNode" "AccountLockoutNode" "AgentDataStoreDecisionNode" "AnonymousUserNode" "AuthLevelDecisionNode" "ChoiceCollectorNode" "CookiePresenceDecisionNode" "CreatePasswordNode" "DataStoreDecisionNode" "InnerTreeEvaluatorNode" "LdapDecisionNode" "MessageNode" "MetadataNode" "MeterNode" "ModifyAuthLevelNode" "OneTimePasswordCollectorDecisionNode" "OneTimePasswordGeneratorNode" "OneTimePasswordSmsSenderNode" "OneTimePasswordSmtpSenderNode" "PageNode" "PasswordCollectorNode" "PersistentCookieDecisionNode" "PollingWaitNode" "ProvisionDynamicAccountNode" "ProvisionIdmAccountNode" "PushAuthenticationSenderNode" "PushResultVerifierNode" "RecoveryCodeCollectorDecisionNode" "RecoveryCodeDisplayNode" "RegisterLogoutWebhookNode" "RemoveSessionPropertiesNode" "RetryLimitDecisionNode" "ScriptedDecisionNode" "SessionDataNode" "SetFailureUrlNode" "SetPersistentCookieNode" "SetSessionPropertiesNode" "SetSuccessUrlNode" "SocialFacebookNode" "SocialGoogleNode" "SocialNode" "SocialOAuthIgnoreProfileNode" "SocialOpenIdConnectNode" "TimerStartNode" "TimerStopNode" "UsernameCollectorNode" "WebAuthnAuthenticationNode" "WebAuthnRegistrationNode" "ZeroPageLoginNode" )
+OOTBNODETYPES_6_5=( "AbstractSocialAuthLoginNode" "AccountLockoutNode" "AgentDataStoreDecisionNode" "AnonymousUserNode" "AuthLevelDecisionNode" "ChoiceCollectorNode" "CookiePresenceDecisionNode" "CreatePasswordNode" "DataStoreDecisionNode" "InnerTreeEvaluatorNode" "LdapDecisionNode" "MessageNode" "MetadataNode" "MeterNode" "ModifyAuthLevelNode" "OneTimePasswordCollectorDecisionNode" "OneTimePasswordGeneratorNode" "OneTimePasswordSmsSenderNode" "OneTimePasswordSmtpSenderNode" "PageNode" "PasswordCollectorNode" "PersistentCookieDecisionNode" "PollingWaitNode" "ProvisionDynamicAccountNode" "ProvisionIdmAccountNode" "PushAuthenticationSenderNode" "PushResultVerifierNode" "RecoveryCodeCollectorDecisionNode" "RecoveryCodeDisplayNode" "RegisterLogoutWebhookNode" "RemoveSessionPropertiesNode" "RetryLimitDecisionNode" "ScriptedDecisionNode" "SessionDataNode" "SetFailureUrlNode" "SetPersistentCookieNode" "SetSessionPropertiesNode" "SetSuccessUrlNode" "SocialFacebookNode" "SocialGoogleNode" "SocialNode" "SocialOAuthIgnoreProfileNode" "SocialOpenIdConnectNode" "TimerStartNode" "TimerStopNode" "UsernameCollectorNode" "WebAuthnAuthenticationNode" "WebAuthnRegistrationNode" "ZeroPageLoginNode" )
+OOTBNODETYPES_7=( "AcceptTermsAndConditionsNode" "AccountActiveDecisionNode" "AccountLockoutNode" "AgentDataStoreDecisionNode" "AnonymousSessionUpgradeNode" "AnonymousUserNode" "AttributeCollectorNode" "AttributePresentDecisionNode" "AttributeValueDecisionNode" "AuthLevelDecisionNode" "ChoiceCollectorNode" "ConsentNode" "CookiePresenceDecisionNode" "CreateObjectNode" "CreatePasswordNode" "DataStoreDecisionNode" "DeviceGeoFencingNode" "DeviceLocationMatchNode" "DeviceMatchNode" "DeviceProfileCollectorNode" "DeviceSaveNode" "DeviceTamperingVerificationNode" "DisplayUserNameNode" "EmailSuspendNode" "EmailTemplateNode" "IdentifyExistingUserNode" "IncrementLoginCountNode" "InnerTreeEvaluatorNode" "IotAuthenticationNode" "IotRegistrationNode" "KbaCreateNode" "KbaDecisionNode" "KbaVerifyNode" "LdapDecisionNode" "LoginCountDecisionNode" "MessageNode" "MetadataNode" "MeterNode" "ModifyAuthLevelNode" "OneTimePasswordCollectorDecisionNode" "OneTimePasswordGeneratorNode" "OneTimePasswordSmsSenderNode" "OneTimePasswordSmtpSenderNode" "PageNode" "PasswordCollectorNode" "PatchObjectNode" "PersistentCookieDecisionNode" "PollingWaitNode" "ProfileCompletenessDecisionNode" "ProvisionDynamicAccountNode" "ProvisionIdmAccountNode" "PushAuthenticationSenderNode" "PushResultVerifierNode" "QueryFilterDecisionNode" "RecoveryCodeCollectorDecisionNode" "RecoveryCodeDisplayNode" "RegisterLogoutWebhookNode" "RemoveSessionPropertiesNode" "RequiredAttributesDecisionNode" "RetryLimitDecisionNode" "ScriptedDecisionNode" "SelectIdPNode" "SessionDataNode" "SetFailureUrlNode" "SetPersistentCookieNode" "SetSessionPropertiesNode" "SetSuccessUrlNode" "SocialFacebookNode" "SocialGoogleNode" "SocialNode" "SocialOAuthIgnoreProfileNode" "SocialOpenIdConnectNode" "SocialProviderHandlerNode" "TermsAndConditionsDecisionNode" "TimeSinceDecisionNode" "TimerStartNode" "TimerStopNode" "UsernameCollectorNode" "ValidatedPasswordNode" "ValidatedUsernameNode" "WebAuthnAuthenticationNode" "WebAuthnDeviceStorageNode" "WebAuthnRegistrationNode" "ZeroPageLoginNode" "product-CertificateCollectorNode" "product-CertificateUserExtractorNode" "product-CertificateValidationNode" "product-KerberosNode" "product-ReCaptchaNode" "product-Saml2Node" "product-WriteFederationInformationNode" )
+OOTBNODETYPES=(${OOTBNODETYPES_7[@]})
 CONTAINERNODETYPES=( "PageNode" "CustomPageNode" )
 SCRIPTNODETYPES=( "ScriptedDecisionNode" "ClientScriptNode" "CustomScriptNode" )
 AM=""
@@ -42,8 +45,29 @@ function login {
     else
         AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId | sed -e 's/\"//g')
     fi
+    setVersion
 }
 
+function setVersion {
+    JVERSION=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" $AM/json${REALM}/serverinfo/version)
+    VERSION=$(echo $JVERSION| jq -r  '.version')
+    FULLVER=$(echo $JVERSION| jq -r  '.fullVersion')
+    1>&2 echo "Connected to $FULLVER"
+    VERKEY=$(echo "$VERSION" | sed -e 's/\./_/g' | cut -c1-5)
+    VERKEY1=$(echo "$VERKEY" | cut -c1-1)
+    VARNAME="OOTBNODETYPES_$VERKEY"
+    eval OOTBNODETYPES=(\${$VARNAME[@]})
+    if [ -z "$OOTBNODETYPES" ] ; then
+        VERKEY=$(echo "$VERKEY" | cut -c1-3)
+        VARNAME="OOTBNODETYPES_$VERKEY"
+        eval OOTBNODETYPES=(\${$VARNAME[@]})
+        if [ -z "$OOTBNODETYPES" ] ; then
+            VERKEY=$(echo "$VERKEY" | cut -c1-1)
+            VARNAME="OOTBNODETYPES_$VERKEY"
+            eval OOTBNODETYPES=(\${$VARNAME[@]})
+        fi
+    fi
+}
 
 # the admin ui leaves orphaned node instances after deleting a tree and when using the APIs it is very easy to
 # forget to clean-up everything as well. the prune function will iterate through all node types, and then through
@@ -184,9 +208,8 @@ function isCustomTree {
 
 # itemIn "value" "${array[@]}" 
 function itemIn () {
-  local e
-  for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
-  return 1
+    found=`echo "${@:2}" | grep -c $1`
+    return $(( found * -1 + 1 ))
 }
 
 
