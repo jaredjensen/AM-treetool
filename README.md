@@ -1,5 +1,5 @@
 # AM-treetool
-A shell script tool to export/import/clone Forgerock AM trees.
+A shell script tool to export/import/clone Forgerock Access Management and ForgeRock Identity Cloud PaaS trees and journeys.
 
 ## Description:
 A shell script which will export an AM authentication tree from any realm (default: /) to standard output and re-import into any realm from standard input (optionally renaming the tree). The tool will include scripts. Requires curl, jq, and uuidgen to be installed and available.
