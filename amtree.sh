@@ -417,7 +417,7 @@ function exportTree {
                 EXPORTS=$(echo $EXPORTS "{ \"innernodes\": { \"$PAGENODEID\": $PAGENODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
                 
                 # Export scripts inside page nodes
-                if [ "$PAGENODETYPE" == "ScriptedDecisionNode" ]; then
+                if itemIn "$PAGENODETYPE" "${SCRIPTNODETYPES[@]}" ; then
                     local SCRIPTID=$(echo $PAGENODE | jq -r '.script')
                     local SCRIPT=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/scripts/$SCRIPTID | jq '. | del (._rev)')
                     EXPORTS=$(echo $EXPORTS "{ \"scripts\": { \"$SCRIPTID\": $SCRIPT } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
