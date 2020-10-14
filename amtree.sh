@@ -415,6 +415,13 @@ function exportTree {
                 local PAGENODE=$(curl -b cookies.txt -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" $AM/json${REALM}/realm-config/authentication/authenticationtrees/nodes/$PAGENODETYPE/$PAGENODEID | jq '. | del (._rev)')
                 1>&2 echo -n "."
                 EXPORTS=$(echo $EXPORTS "{ \"innernodes\": { \"$PAGENODEID\": $PAGENODE } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
+                
+                # Export scripts inside page nodes
+                if [ "$PAGENODETYPE" == "ScriptedDecisionNode" ]; then
+                    local SCRIPTID=$(echo $PAGENODE | jq -r '.script')
+                    local SCRIPT=$(curl -s -k -X GET -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "iPlanetDirectoryPro:$AMSESSION" $AM/json${REALM}/scripts/$SCRIPTID | jq '. | del (._rev)')
+                    EXPORTS=$(echo $EXPORTS "{ \"scripts\": { \"$SCRIPTID\": $SCRIPT } }" | jq -s 'reduce .[] as $item ({}; . * $item)')
+                fi
             done
         fi
         # Export scripts referenced by nodes in this tree
