@@ -40,11 +40,16 @@ function login {
     fi
     shopt -u nocasematch
     RESPONSE=$(curl -j -c cookies.txt -s -k -i -X POST -H "Accept-API-Version:resource=1.0" -H "X-Requested-With:XmlHttpRequest" -H "X-OpenAM-Username:${AMADMIN}" -H "X-OpenAM-Password:${AMPASSWD}" "$AM/json/authenticate")
-    if [ "null" == "$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId)" ] ; then
-        1>&2 echo "Error: $(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq -r '.errorMessage')"
+    if [[ $RESPONSE = "" ]]; then
+        echo 'Error: Check hostname is valid.'
         exit -1
     else
-        AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId | sed -e 's/\"//g')
+        if [ "null" == "$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId)" ]; then
+                1>&2 echo "Error: $(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq -r '.errorMessage')"
+                exit -1
+        else
+                AMSESSION=$(echo "$RESPONSE" | sed -n -e 's/^.*{"/{"/p' | jq .tokenId | sed -e 's/\"//g')
+        fi
     fi
     setVersion
 }
