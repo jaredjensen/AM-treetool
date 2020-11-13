@@ -1,0 +1,419 @@
+
+{
+  "origin": "690e156415dc1c34e4cbec2fcee0dcfb",
+  "innernodes": {},
+  "nodes": {
+    "131e803c-a71b-41c9-bc1a-f0285b86f268": {
+      "_id": "131e803c-a71b-41c9-bc1a-f0285b86f268",
+      "totpHashAlgorithm": "HMAC_SHA1",
+      "algorithm": "TOTP",
+      "hotpWindowSize": 100,
+      "totpTimeSteps": 2,
+      "maximumAllowedClockDrift": 5,
+      "totpTimeInterval": 30,
+      "isRecoveryCodeAllowed": true,
+      "_type": {
+        "_id": "OathTokenVerifierNode",
+        "name": "OATH Token Verifier",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "successOutcome",
+          "displayName": "Success"
+        },
+        {
+          "id": "failureOutcome",
+          "displayName": "Failure"
+        },
+        {
+          "id": "notRegisteredOutcome",
+          "displayName": "Not registered"
+        },
+        {
+          "id": "recoveryCodeOutcome",
+          "displayName": "Recovery Code"
+        }
+      ]
+    },
+    "1ecc06e5-aa20-498e-a7cb-541ca2f088b6": {
+      "_id": "1ecc06e5-aa20-498e-a7cb-541ca2f088b6",
+      "recoveryCodeType": "WEB_AUTHN",
+      "_type": {
+        "_id": "RecoveryCodeCollectorDecisionNode",
+        "name": "Recovery Code Collector Decision",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "true",
+          "displayName": "True"
+        },
+        {
+          "id": "false",
+          "displayName": "False"
+        }
+      ]
+    },
+    "22a41f6d-8a49-4815-b44a-6db0c0c9cdc1": {
+      "_id": "22a41f6d-8a49-4815-b44a-6db0c0c9cdc1",
+      "_type": {
+        "_id": "RecoveryCodeDisplayNode",
+        "name": "Recovery Code Display Node",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    },
+    "4c58ac98-19b4-4f27-b63e-8d4e3e3448d8": {
+      "_id": "4c58ac98-19b4-4f27-b63e-8d4e3e3448d8",
+      "skipStepLabel": {},
+      "getAppLabel": {},
+      "registerDeviceLabel": {},
+      "getApp": true,
+      "optOutLabel": {},
+      "message": {},
+      "mandatory": true,
+      "_type": {
+        "_id": "MultiFactorRegistrationOptionsNode",
+        "name": "MFA Registration Options",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "registerOutcome",
+          "displayName": "Register"
+        },
+        {
+          "id": "getAppOutcome",
+          "displayName": "Get App"
+        }
+      ]
+    },
+    "5777b314-08a7-4e82-bc8b-aa527100ee55": {
+      "_id": "5777b314-08a7-4e82-bc8b-aa527100ee55",
+      "authenticatorAttachment": "UNSPECIFIED",
+      "trustStoreAlias": "trustalias",
+      "postponeDeviceProfileStorage": false,
+      "relyingPartyName": "ForgeRock",
+      "requiresResidentKey": false,
+      "origins": [],
+      "attestationPreference": "NONE",
+      "enforceRevocationCheck": false,
+      "acceptedSigningAlgorithms": [
+        "ES256",
+        "RS256"
+      ],
+      "asScript": false,
+      "generateRecoveryCodes": true,
+      "excludeCredentials": false,
+      "timeout": 60,
+      "userVerificationRequirement": "PREFERRED",
+      "storeAttestationDataInTransientState": false,
+      "_type": {
+        "_id": "WebAuthnRegistrationNode",
+        "name": "WebAuthn Registration Node",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "unsupported",
+          "displayName": "Unsupported"
+        },
+        {
+          "id": "success",
+          "displayName": "Success"
+        },
+        {
+          "id": "failure",
+          "displayName": "Failure"
+        },
+        {
+          "id": "error",
+          "displayName": "Client Error"
+        }
+      ]
+    },
+    "7c7c60df-d184-4f57-974f-c4aa61366369": {
+      "_id": "7c7c60df-d184-4f57-974f-c4aa61366369",
+      "recoveryCodeType": "OATH",
+      "_type": {
+        "_id": "RecoveryCodeCollectorDecisionNode",
+        "name": "Recovery Code Collector Decision",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "true",
+          "displayName": "True"
+        },
+        {
+          "id": "false",
+          "displayName": "False"
+        }
+      ]
+    },
+    "8c21394f-94d5-44ef-9ad0-5bdff8234d47": {
+      "_id": "8c21394f-94d5-44ef-9ad0-5bdff8234d47",
+      "algorithm": "TOTP",
+      "issuer": "ForgeRock",
+      "totpHashAlgorithm": "HMAC_SHA1",
+      "totpTimeInterval": 30,
+      "truncationOffset": -1,
+      "passwordLength": "SIX_DIGITS",
+      "minSharedSecretLength": 32,
+      "generateRecoveryCodes": true,
+      "bgColor": "032b75",
+      "addChecksum": false,
+      "accountName": "EMAIL_ADDRESS",
+      "_type": {
+        "_id": "OathRegistrationNode",
+        "name": "OATH Registration",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "successOutcome",
+          "displayName": "Success"
+        },
+        {
+          "id": "failureOutcome",
+          "displayName": "Failure"
+        }
+      ]
+    },
+    "91455085-1a4e-4f35-a156-0390cfaff349": {
+      "_id": "91455085-1a4e-4f35-a156-0390cfaff349",
+      "message": {},
+      "continueLabel": {},
+      "appleLink": "https://itunes.apple.com/app/forgerock-authenticator/id1038442926",
+      "googleLink": "https://play.google.com/store/apps/details?id=com.forgerock.authenticator",
+      "_type": {
+        "_id": "GetAuthenticatorAppNode",
+        "name": "Get Authenticator App",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    },
+    "c531c846-9f69-4524-a201-86e451d4076b": {
+      "_id": "c531c846-9f69-4524-a201-86e451d4076b",
+      "choices": [
+        "Security Key or Touch ID",
+        "ForgeRock Authenticator"
+      ],
+      "defaultChoice": "Security Device",
+      "prompt": "Choose your strong authentication method",
+      "_type": {
+        "_id": "ChoiceCollectorNode",
+        "name": "Choice Collector",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "Security Key or Touch ID",
+          "displayName": "Security Key or Touch ID"
+        },
+        {
+          "id": "ForgeRock Authenticator",
+          "displayName": "ForgeRock Authenticator"
+        }
+      ]
+    },
+    "cac2e2b5-06d2-4c28-8426-3fdb56f4611d": {
+      "_id": "cac2e2b5-06d2-4c28-8426-3fdb56f4611d",
+      "timeout": 60,
+      "origins": [],
+      "userVerificationRequirement": "PREFERRED",
+      "isRecoveryCodeAllowed": false,
+      "asScript": false,
+      "requiresResidentKey": false,
+      "_type": {
+        "_id": "WebAuthnAuthenticationNode",
+        "name": "WebAuthn Authentication Node",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "unsupported",
+          "displayName": "Unsupported"
+        },
+        {
+          "id": "noDevice",
+          "displayName": "No Device Registered"
+        },
+        {
+          "id": "success",
+          "displayName": "Success"
+        },
+        {
+          "id": "failure",
+          "displayName": "Failure"
+        },
+        {
+          "id": "error",
+          "displayName": "Client Error"
+        }
+      ]
+    },
+    "df9dd2f8-6e4f-485c-a790-6c4e710d63dc": {
+      "_id": "df9dd2f8-6e4f-485c-a790-6c4e710d63dc",
+      "_type": {
+        "_id": "RecoveryCodeDisplayNode",
+        "name": "Recovery Code Display Node",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    }
+  },
+  "scripts": {},
+  "tree": {
+    "_id": "FRSecondFactor",
+    "identityResource": "managed/teammember",
+    "entryNodeId": "cac2e2b5-06d2-4c28-8426-3fdb56f4611d",
+    "staticNodes": {
+      "startNode": {
+        "x": 50,
+        "y": 25
+      },
+      "70e691a5-1e33-4ac3-a356-e7b6d60d92e0": {
+        "x": 1188,
+        "y": 117
+      },
+      "e301438c-0bd0-429c-ab0c-66126501069a": {
+        "x": 1211,
+        "y": 380
+      }
+    },
+    "uiConfig": {},
+    "nodes": {
+      "cac2e2b5-06d2-4c28-8426-3fdb56f4611d": {
+        "displayName": "WebAuthn Authentication",
+        "nodeType": "WebAuthnAuthenticationNode",
+        "x": 149,
+        "y": 25,
+        "connections": {
+          "success": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0",
+          "error": "1ecc06e5-aa20-498e-a7cb-541ca2f088b6",
+          "failure": "e301438c-0bd0-429c-ab0c-66126501069a",
+          "noDevice": "131e803c-a71b-41c9-bc1a-f0285b86f268",
+          "unsupported": "131e803c-a71b-41c9-bc1a-f0285b86f268"
+        }
+      },
+      "5777b314-08a7-4e82-bc8b-aa527100ee55": {
+        "displayName": "WebAuthn Registration",
+        "nodeType": "WebAuthnRegistrationNode",
+        "x": 574,
+        "y": 591,
+        "connections": {
+          "unsupported": "e301438c-0bd0-429c-ab0c-66126501069a",
+          "success": "df9dd2f8-6e4f-485c-a790-6c4e710d63dc",
+          "failure": "e301438c-0bd0-429c-ab0c-66126501069a",
+          "error": "e301438c-0bd0-429c-ab0c-66126501069a"
+        }
+      },
+      "df9dd2f8-6e4f-485c-a790-6c4e710d63dc": {
+        "displayName": "Show Recovery Codes",
+        "nodeType": "RecoveryCodeDisplayNode",
+        "x": 840,
+        "y": 635,
+        "connections": {
+          "outcome": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0"
+        }
+      },
+      "1ecc06e5-aa20-498e-a7cb-541ca2f088b6": {
+        "displayName": "WebAuthn Recovery Code",
+        "nodeType": "RecoveryCodeCollectorDecisionNode",
+        "x": 827,
+        "y": 29,
+        "connections": {
+          "true": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0",
+          "false": "e301438c-0bd0-429c-ab0c-66126501069a"
+        }
+      },
+      "4c58ac98-19b4-4f27-b63e-8d4e3e3448d8": {
+        "displayName": "OATH Check",
+        "nodeType": "MultiFactorRegistrationOptionsNode",
+        "x": 400,
+        "y": 359,
+        "connections": {
+          "getAppOutcome": "91455085-1a4e-4f35-a156-0390cfaff349",
+          "registerOutcome": "8c21394f-94d5-44ef-9ad0-5bdff8234d47"
+        }
+      },
+      "91455085-1a4e-4f35-a156-0390cfaff349": {
+        "connections": {
+          "outcome": "4c58ac98-19b4-4f27-b63e-8d4e3e3448d8"
+        },
+        "nodeType": "GetAuthenticatorAppNode",
+        "displayName": "Get App",
+        "x": 417,
+        "y": 461
+      },
+      "22a41f6d-8a49-4815-b44a-6db0c0c9cdc1": {
+        "displayName": "Show Recovery Codes",
+        "nodeType": "RecoveryCodeDisplayNode",
+        "x": 833,
+        "y": 422,
+        "connections": {
+          "outcome": "131e803c-a71b-41c9-bc1a-f0285b86f268"
+        }
+      },
+      "8c21394f-94d5-44ef-9ad0-5bdff8234d47": {
+        "displayName": "OATH Registration",
+        "nodeType": "OathRegistrationNode",
+        "x": 582,
+        "y": 392,
+        "connections": {
+          "failureOutcome": "e301438c-0bd0-429c-ab0c-66126501069a",
+          "successOutcome": "22a41f6d-8a49-4815-b44a-6db0c0c9cdc1"
+        }
+      },
+      "131e803c-a71b-41c9-bc1a-f0285b86f268": {
+        "displayName": "OATH Token Verifier",
+        "nodeType": "OathTokenVerifierNode",
+        "x": 169,
+        "y": 225,
+        "connections": {
+          "failureOutcome": "e301438c-0bd0-429c-ab0c-66126501069a",
+          "successOutcome": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0",
+          "recoveryCodeOutcome": "7c7c60df-d184-4f57-974f-c4aa61366369",
+          "notRegisteredOutcome": "c531c846-9f69-4524-a201-86e451d4076b"
+        }
+      },
+      "7c7c60df-d184-4f57-974f-c4aa61366369": {
+        "displayName": "OATH Recovery Code",
+        "nodeType": "RecoveryCodeCollectorDecisionNode",
+        "x": 835,
+        "y": 240,
+        "connections": {
+          "true": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0",
+          "false": "e301438c-0bd0-429c-ab0c-66126501069a"
+        }
+      },
+      "c531c846-9f69-4524-a201-86e451d4076b": {
+        "connections": {
+          "Security Key or Touch ID": "5777b314-08a7-4e82-bc8b-aa527100ee55",
+          "ForgeRock Authenticator": "4c58ac98-19b4-4f27-b63e-8d4e3e3448d8"
+        },
+        "nodeType": "ChoiceCollectorNode",
+        "displayName": "Choose Method",
+        "x": 176,
+        "y": 464
+      }
+    }
+  }
+}

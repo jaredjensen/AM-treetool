@@ -1,0 +1,159 @@
+
+{
+  "origin": "690e156415dc1c34e4cbec2fcee0dcfb",
+  "innernodes": {
+    "08e3ff9b-3e07-4cc1-9f29-001bfd4d10c3": {
+      "_id": "08e3ff9b-3e07-4cc1-9f29-001bfd4d10c3",
+      "validateInput": false,
+      "usernameAttribute": "userName",
+      "_type": {
+        "_id": "ValidatedUsernameNode",
+        "name": "Platform Username",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    },
+    "4ecfaa96-78d7-4bc2-b431-73f3eb10f32e": {
+      "_id": "4ecfaa96-78d7-4bc2-b431-73f3eb10f32e",
+      "validateInput": false,
+      "passwordAttribute": "password",
+      "_type": {
+        "_id": "ValidatedPasswordNode",
+        "name": "Platform Password",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    }
+  },
+  "nodes": {
+    "485bb772-781d-4052-bb6c-525ac17d2453": {
+      "_id": "485bb772-781d-4052-bb6c-525ac17d2453",
+      "pageHeader": {
+        "en": "FRLogin2"
+      },
+      "pageDescription": {},
+      "nodes": [
+        {
+          "_id": "08e3ff9b-3e07-4cc1-9f29-001bfd4d10c3",
+          "nodeType": "ValidatedUsernameNode",
+          "displayName": "Platform Username"
+        },
+        {
+          "_id": "4ecfaa96-78d7-4bc2-b431-73f3eb10f32e",
+          "nodeType": "ValidatedPasswordNode",
+          "displayName": "Platform Password"
+        }
+      ],
+      "_type": {
+        "_id": "PageNode",
+        "name": "Page Node",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "outcome",
+          "displayName": "Outcome"
+        }
+      ]
+    },
+    "a74bef42-ba48-4e8a-bfa0-dbc1f82eb0f6": {
+      "_id": "a74bef42-ba48-4e8a-bfa0-dbc1f82eb0f6",
+      "_type": {
+        "_id": "DataStoreDecisionNode",
+        "name": "Data Store Decision",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "true",
+          "displayName": "True"
+        },
+        {
+          "id": "false",
+          "displayName": "False"
+        }
+      ]
+    },
+    "bfcf6198-7774-4915-8bfb-1d6174bcd000": {
+      "_id": "bfcf6198-7774-4915-8bfb-1d6174bcd000",
+      "tree": "FRSecondFactor",
+      "_type": {
+        "_id": "InnerTreeEvaluatorNode",
+        "name": "Inner Tree Evaluator",
+        "collection": true
+      },
+      "_outcomes": [
+        {
+          "id": "true",
+          "displayName": "True"
+        },
+        {
+          "id": "false",
+          "displayName": "False"
+        }
+      ]
+    }
+  },
+  "scripts": {},
+  "tree": {
+    "_id": "FRLogin2",
+    "entryNodeId": "485bb772-781d-4052-bb6c-525ac17d2453",
+    "staticNodes": {
+      "startNode": {
+        "x": 50,
+        "y": 25
+      },
+      "70e691a5-1e33-4ac3-a356-e7b6d60d92e0": {
+        "x": 788,
+        "y": 59
+      },
+      "e301438c-0bd0-429c-ab0c-66126501069a": {
+        "x": 789,
+        "y": 213
+      }
+    },
+    "uiConfig": {},
+    "nodes": {
+      "485bb772-781d-4052-bb6c-525ac17d2453": {
+        "displayName": "Page Node",
+        "nodeType": "PageNode",
+        "x": 141,
+        "y": 26,
+        "connections": {
+          "outcome": "a74bef42-ba48-4e8a-bfa0-dbc1f82eb0f6"
+        }
+      },
+      "a74bef42-ba48-4e8a-bfa0-dbc1f82eb0f6": {
+        "displayName": "Data Store Decision",
+        "nodeType": "DataStoreDecisionNode",
+        "x": 337,
+        "y": 27,
+        "connections": {
+          "true": "bfcf6198-7774-4915-8bfb-1d6174bcd000",
+          "false": "e301438c-0bd0-429c-ab0c-66126501069a"
+        }
+      },
+      "bfcf6198-7774-4915-8bfb-1d6174bcd000": {
+        "displayName": "Second Factor",
+        "nodeType": "InnerTreeEvaluatorNode",
+        "x": 595,
+        "y": 27,
+        "connections": {
+          "true": "70e691a5-1e33-4ac3-a356-e7b6d60d92e0",
+          "false": "e301438c-0bd0-429c-ab0c-66126501069a"
+        }
+      }
+    },
+    "identityResource": "managed/teammember"
+  }
+}
