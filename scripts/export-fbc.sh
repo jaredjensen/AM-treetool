@@ -16,69 +16,93 @@ function lower() {
   echo $1 | awk '{print tolower($0)}'
 }
 
+function fetch() {
+  local src=$1
+  local dst=$2
+  echo "Fetching ${src}"
+  mkdir -p $(dirname $dst)
+  kubectl cp $src $dst -n fr-platform -c openam
+}
+
 function save-node() {
-  NODE_TYPE=$(lower $1)
-  NODE_ID=$2
-  NODE_FOLDER="${REALM_FOLDER}/${NODE_TYPE}/1.0/organizationconfig/default"
-  NODE_PATH="${NODE_FOLDER}/$NODE_ID.json"
+  local nodeType=$(lower $1)
+  local nodeId=$2
+  local nodeFolder="${REALM_FOLDER}/${nodeType}/1.0/organizationconfig/default"
+  local nodePath="${nodeFolder}/$nodeId.json"
 
-  SRC="${AM_POD}:/home/forgerock/openam/config/services/realm/${NODE_PATH}"
-  DST="${TARGET_DIR}/${NODE_PATH}"
-
-  echo "Fetching ${SRC}"
-
-  mkdir -p "${TARGET_DIR}/${NODE_FOLDER}"
-  kubectl cp $SRC $DST -n fr-platform -c openam
+  local src="${AM_POD}:/home/forgerock/openam/config/services/realm/${nodePath}"
+  local dst="${TARGET_DIR}/${nodePath}"
+  fetch $src $dst
   
   # Fetch associated script, if any
-  SCRIPT_ID="$(jq -r '.data.script' $DST)"
-  if [[ "${SCRIPT_ID}" != 'null' ]]; then
-    save-script $SCRIPT_ID
+  local scriptId="$(jq -r '.data.script' $dst)"
+  if [[ "${scriptId}" != 'null' ]]; then
+    save-script $scriptId
   fi
 
   # Determine how child nodes are serialized
-  CHILD_NODES_TYPE="$(jq -r '.data.nodes | type' $DST)"
-  case $CHILD_NODES_TYPE in
+  local childNodesType="$(jq -r '.data.nodes | type' $dst)"
+  case $childNodesType in
     'null')
       ;;
 
     'array')
-      jq -rc '.data.nodes[]' $DST | while IFS='' read node; do
-        guid=$(echo $node | cut -f1 -d:)
-        nodeType=$(echo $node | cut -f2 -d:)
+      jq -rc '.data.nodes[]' $dst | while IFS='' read node; do
+        local guid=$(echo $node | cut -f1 -d:)
+        local nodeType=$(echo $node | cut -f2 -d:)
         save-node $nodeType $guid
       done
       ;;
 
     'object')
-      jq -rc '.data.nodes | keys[] as $k | "\($k)=\(.[$k] | .nodeType)"' $DST | while IFS='' read node; do
-        guid=$(echo $node | cut -f1 -d=)
-        nodeType=$(echo $node | cut -f2 -d=)
+      jq -rc '.data.nodes | keys[] as $k | "\($k)=\(.[$k] | .nodeType)"' $dst | while IFS='' read node; do
+        local guid=$(echo $node | cut -f1 -d=)
+        local nodeType=$(echo $node | cut -f2 -d=)
         save-node $nodeType $guid
       done
       ;;
 
     *)
-      echo "Unsupported child nodes format: ${CHILD_NODES_TYPE}"
+      echo "Unsupported child nodes format: '${childNodesType}'"
       exit 1
       ;;
   esac
 }
 
 function save-script() {
-  SCRIPT_ID=$1
-  SCRIPT_FOLDER="${REALM_FOLDER}/scriptingservice/1.0/organizationconfig/default/scriptconfigurations"
-  SCRIPT_PATH="${SCRIPT_FOLDER}/${SCRIPT_ID}.json"
-  # SCRIPT_NAME="foo"
-  # SCRIPT_SRC_PATH="${SCRIPT_FOLDER}/${SCRIPT_ID}.javascript"
+  local scriptId=$1
+  local scriptFolder="${REALM_FOLDER}/scriptingservice/1.0/organizationconfig/default/scriptconfigurations"
+  local scriptPath="${scriptFolder}/${scriptId}.json"
 
-  SRC="${AM_POD}:/home/forgerock/openam/config/services/realm/${SCRIPT_PATH}"
-  DST="${TARGET_DIR}/${SCRIPT_PATH}"
+  local src="${AM_POD}:/home/forgerock/openam/config/services/realm/${scriptPath}"
+  local dst="${TARGET_DIR}/${scriptPath}"
+  fetch $src $dst
 
-  echo "Fetching ${SRC}"
+  local scriptType="$(jq -r '.data.script | type' $dst)"
+  local scriptName=$(jq -r '.data.name' $dst)
+  case $scriptType in
+    'string')
+      # Convert inline script to external
+      local scriptFilename="$(lower $scriptName).javascript"
+      scriptPath="${scriptFolder}/${scriptFilename}"
+      local js="${TARGET_DIR}/${scriptPath}"
+      jq -r '.data.script' $dst | base64 --decode > $js
+      ;;
 
-  mkdir -p "${TARGET_DIR}/${SCRIPT_FOLDER}"
-  kubectl cp $SRC $DST -n fr-platform -c openam
+    'object')
+      # Fetch the external script
+      local scriptFilename=$(jq -r '.data.script["$base64:encode"]["$inline"]' $dst)
+      scriptPath="${scriptFolder}/${scriptFilename}"
+      src="${AM_POD}:/home/forgerock/openam/config/services/realm/${scriptPath}"
+      dst="${TARGET_DIR}/${scriptPath}"
+      fetch $src $dst
+      ;;
+
+    *)
+      echo "Unsupported script format: '${scriptType}'"
+      exit 1
+      ;;
+  esac  
 }
 
 # Save the tree file
