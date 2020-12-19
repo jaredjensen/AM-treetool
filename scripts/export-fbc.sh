@@ -87,6 +87,8 @@ function save-script() {
       scriptPath="${scriptFolder}/${scriptFilename}"
       local js="${TARGET_DIR}/${scriptPath}"
       jq -r '.data.script' $dst | base64 --decode > $js
+      # Update the node to reference the external script
+      jq --arg filename $scriptFilename '.data.script = { "$base64:encode": { "$inline": $filename } }' $dst > "${dst}.tmp" && mv "${dst}.tmp" $dst
       ;;
 
     'object')
