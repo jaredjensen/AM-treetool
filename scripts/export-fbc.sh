@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 
 TREE_NAME=$1
-TARGET_DIR=${2:-../fbc}
+TARGET_DIR=$2
 REALM_FOLDER=${3:-root}
 
-if [ -z $TREE_NAME ]; then
-  echo 'No tree name was specified.'
-  exit 1
-fi
+function display-usage() {
+  cat << EOF
+---------
+Exports a tree and related scripts to FBC format using kubectl to
+copy files from a running AM container in the current context.
 
-AM_POD=$(kubectl get pods -n fr-platform | grep am- | sed 's/\(am[^ ]*\).*/\1/' | head -n 1)
-echo "Saving tree ${TREE_NAME} to ${TARGET_DIR} using AM pod ${AM_POD}"
+Usage:
+  ./export-fbc.sh tree_name target_dir [realm_folder]
+
+Example:
+  ./export-fbc.sh Login ./fbc root-alpha
+---------
+EOF
+}
 
 function lower() {
   echo $1 | awk '{print tolower($0)}'
@@ -107,5 +114,18 @@ function save-script() {
   esac  
 }
 
-# Save the tree file
+if [ -z $TREE_NAME ]; then
+  echo -e 'No tree name was specified.\n'
+  display-usage
+  exit 1
+fi
+
+if [ -z $TARGET_DIR ]; then
+  echo -e 'No target directory was specified.\n'
+  display-usage
+  exit 1
+fi
+
+AM_POD=$(kubectl get pods -n fr-platform | grep am- | sed 's/\(am[^ ]*\).*/\1/' | head -n 1)
+echo "Saving tree ${TREE_NAME} to ${TARGET_DIR} using AM pod ${AM_POD}"
 save-node authenticationtreesservice $(lower $TREE_NAME)
